@@ -6,11 +6,8 @@
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://raw.githack.com/robertleeplummerjr/Leaflet.glify/master/dist/glify-browser.js"></script>
     <script src="https://unpkg.com/leaflet-providers@1.3.0/leaflet-providers.js"></script>
     <script src="https://unpkg.com/jquery@3.3.1/dist/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/spin.js/2.3.2/spin.min.js"></script>
@@ -66,19 +63,52 @@
 
         L.control.layers(baseMaps, overlays).addTo(map);
 
-        var markers = L.markerClusterGroup().addTo(map);
-
         map.spin(true, { color: "white" });
 
         $.getJSON("pivotonline_tweets_2020_twarc.geojson", function(data) {
             console.log(data);
-            for (var f of data.features) {
-                var p = f.properties;
-                var marker = L.marker(f.geometry.coordinates.reverse()).bindTooltip(p.screen_name).bindPopup("", {minWidth: 400, p: p}).on("popupopen", function(e) {
-                    console.log(e);
-                    twttr.widgets.createTweet(e.popup.options.p.url.split("/").pop(), e.popup._contentNode);
-                }).addTo(markers);
+            var lines = []
+            for (var feature of data.features) {
+                for (var other_feature of data.features) {
+                    if (other_feature.properties.mentions && other_feature.properties.mentions.includes(feature.properties.screen_name)) {
+                        var ll = feature.geometry.coordinates;
+                        var oll = other_feature.geometry.coordinates;
+                        lines.push({
+                            type: "LineString",
+                            geometry: {
+                                coordinates: [ll, oll]
+                            }
+                        });
+                    }
+                }
             }
+            lines = {
+                type: "FeatureCollection",
+                features: lines,
+            }
+            console.log(lines);
+
+            L.glify.longitudeFirst();
+            L.glify.points({
+                map: map,
+                size: 10,
+                click: function (e, feature) {
+                    L.popup({minWidth: 400, p: feature.properties})
+                        .setLatLng(e.latlng)
+                        .openOn(map);
+                },
+                data: data,
+                sensitivity: 1
+            });
+            L.glify.lines({
+                map: map,
+                data: lines,
+                weight: .5
+            });
+            map.on("popupopen", function(e) {
+                console.log(e);
+                twttr.widgets.createTweet(e.popup.options.p.url.split("/").pop(), e.popup._contentNode);
+            })
             map.spin(false);
         });
 
