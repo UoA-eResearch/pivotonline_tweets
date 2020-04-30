@@ -106,6 +106,10 @@
             });
             map.on("popupopen", function(e) {
                 console.log(e);
+                var px = map.project(e.target._popup._latlng);
+                console.log(px);
+                px.y -= 300;
+                map.panTo(map.unproject(px),{animate: true});
                 twttr.widgets.createTweet(e.popup.options.p.url.split("/").pop(), e.popup._contentNode);
             })
             map.spin(false);
